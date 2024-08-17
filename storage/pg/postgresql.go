@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	_ "github.com/lib/pq" // Импорт драйвера PostgreSQL
+	_ "github.com/lib/pq"
 )
 
 type Storage struct {
