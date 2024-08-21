@@ -1,0 +1,5 @@
+## Server Start 
+
+```
+docker compose -f docker-compose.dev.yml up
+```
