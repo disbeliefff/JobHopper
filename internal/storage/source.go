@@ -13,6 +13,12 @@ type SourceStorage struct {
 	db *sqlx.DB
 }
 
+func NewSourceStorage(db *sqlx.DB) *SourceStorage {
+	return &SourceStorage{
+		db: db,
+	}
+}
+
 func (s SourceStorage) Sources(ctx context.Context) ([]model.Source, error) {
 	conn, err := s.db.Connx(ctx)
 	if err != nil {
@@ -90,4 +96,5 @@ type dbSource struct {
 	Name      string    `db:"name"`
 	FeedURL   string    `db:"feed_url"`
 	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }

@@ -39,7 +39,7 @@ func (j *JobStorage) Store(ctx context.Context, job model.Job) error {
 	return nil
 }
 
-func (j *JobStorage) AllNotPosted(ctx context.Context, since time.Time, limit uint) ([]model.Job, error) {
+func (j *JobStorage) AllNotPosted(ctx context.Context, since time.Time) ([]model.Job, error) {
 	conn, err := j.db.Connx(ctx)
 	if err != nil {
 		return nil, err
@@ -50,7 +50,7 @@ func (j *JobStorage) AllNotPosted(ctx context.Context, since time.Time, limit ui
 	if err := conn.SelectContext(ctx, &jobs,
 		`SELECT * FROM jobs WHERE posted_at IS NULL
 	  AND published_at >= $1::timestamp
-	  ORDER BY published_at DESC LIMIT $2`, since.UTC().Format(time.RFC3339), limit); err != nil {
+	  ORDER BY published_at`, since.UTC().Format(time.RFC3339)); err != nil {
 		return nil, err
 	}
 

@@ -17,5 +17,5 @@ CREATE TABLE jobs (
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE IF EXISTS jobs;
+DROP TABLE IF EXISTS jobs CASCADE;
 -- +goose StatementEnd

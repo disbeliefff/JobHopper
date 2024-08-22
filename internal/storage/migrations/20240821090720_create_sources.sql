@@ -11,5 +11,5 @@ CREATE TABLE sources (
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE IF EXISTS sources;
+DROP TABLE IF EXISTS sources CASCADE;
 -- +goose StatementEnd

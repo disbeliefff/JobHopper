@@ -2,6 +2,7 @@ package source
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/SlyMarbo/rss"
 	"github.com/disbeliefff/JobHunter/internal/model"
@@ -59,7 +60,14 @@ func (s RSSSource) loadFeed(ctx context.Context, url string) (*rss.Feed, error) 
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case err := <-errCh:
-		return nil, err
+		htmlSource := NewHTMLToRssSource(model.Source{
+			FeedURL: url,
+		})
+		htmlFeed, htmlErr := htmlSource.ConvertToRSS(ctx)
+		if htmlErr != nil {
+			return nil, fmt.Errorf("ошибка при загрузке RSS и HTML: %v, %v", err, htmlErr)
+		}
+		return htmlFeed, nil
 	case feed := <-feedCh:
 		return feed, nil
 	}
