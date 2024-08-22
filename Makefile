@@ -9,3 +9,6 @@ goose-down:
 
 database-up:
 	docker compose -f docker-compose.dev.yml up
+
+server:
+	go run cmd/main.go
