@@ -7,5 +7,5 @@ goose-up:
 goose-down:
 	goose -dir internal/storage/migrations postgres "host=localhost port=5433 user=postgres dbname=job_hunter_bot password=pass sslmode=disable" down
 
-server:
+database:
 	docker compose -f docker-compose.dev.yml up

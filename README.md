@@ -8,12 +8,12 @@ Ensure you have the following installed on your machine:
 - Docker and Docker Compose
 - Goose (for database migrations)
 
-## Starting the Server
+## Starting the DB
 
-To start the server on your local machine, run the following command:
+To start the database on your local machine, run the following command:
 
 ```
-make server
+make database
 ```
 
 ## Running Database Migrations
