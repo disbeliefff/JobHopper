@@ -13,7 +13,7 @@ Ensure you have the following installed on your machine:
 To start the database on your local machine, run the following command:
 
 ```
-make database
+make database-up
 ```
 
 ## Running Database Migrations
