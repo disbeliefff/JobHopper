@@ -64,3 +64,10 @@ func (s RSSSource) loadFeed(ctx context.Context, url string) (*rss.Feed, error) 
 		return feed, nil
 	}
 }
+
+func (s RSSSource) ID() int {
+	return s.SourceID
+}
+func (s RSSSource) Name() string {
+	return s.SourceName
+}

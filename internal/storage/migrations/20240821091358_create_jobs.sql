@@ -17,5 +17,5 @@ CREATE TABLE jobs (
 
 -- +goose Down
 -- +goose StatementBegin
-SELECT 'down SQL query';
+DROP TABLE IF EXISTS jobs;
 -- +goose StatementEnd
