@@ -1,30 +1,25 @@
-# # Stage 1: Build the Go binary
+
 FROM golang:1.23-alpine AS builder
 
-# # Set the working directory inside the container
-# WORKDIR /app
+RUN apk add --no-cache git
 
-# # Copy the Go module files and download the dependencies
-# COPY go.mod go.sum ./
-# RUN go mod download
+WORKDIR /app
 
-# # Copy the source code into the container
-# COPY . .
+COPY go.mod go.sum ./
 
-# # Build the Go binary
-# RUN go build -o myapp .
+RUN go mod download
 
-# # Stage 2: Create the final image with the Go binary
-# FROM alpine:latest
+COPY . .
 
-# # Set the working directory inside the container
-# WORKDIR /app
+RUN go build -o /job_hunter_bot ./cmd/job_hunter_bot
 
-# # Copy the Go binary from the builder stage
-# COPY --from=builder /app/myapp .
+FROM alpine:3.18
 
-# # Expose the port the application will run on
-# EXPOSE 8080
+RUN apk add --no-cache postgresql-client
 
-# # Command to run the application
-# CMD ["./myapp"]
+COPY --from=builder /job_hunter_bot /usr/local/bin/job_hunter_bot
+COPY --from=builder /app/internal/storage/migrations /migrations
+
+WORKDIR /usr/local/bin
+
+CMD ["job_hunter_bot"]
