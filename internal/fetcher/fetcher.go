@@ -99,7 +99,7 @@ func (f *Fetcher) processItems(ctx context.Context, source Source, items []model
 	for _, item := range items {
 		item.Date = item.Date.UTC()
 
-		if f.isItemExcluded(item) {
+		if !f.isItemIncluded(item) {
 			continue
 		}
 
@@ -116,7 +116,7 @@ func (f *Fetcher) processItems(ctx context.Context, source Source, items []model
 	return nil
 }
 
-func (f *Fetcher) isItemExcluded(item model.Item) bool {
+func (f *Fetcher) isItemIncluded(item model.Item) bool {
 	categories := item.Categories
 
 	for _, keyword := range f.filterKeywords {

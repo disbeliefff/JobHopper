@@ -45,15 +45,7 @@ func (s HTMLToRSSSource) Fetch(ctx context.Context) ([]model.Item, error) {
 		}
 	}
 
-	goVacancies := lo.Filter(allVacancies, func(item model.Item, _ int) bool {
-		return strings.Contains(strings.ToLower(item.Title), "go") ||
-			strings.Contains(strings.ToLower(item.Summary), "go") ||
-			strings.Contains(strings.ToLower(item.Title), "golang") ||
-			strings.Contains(strings.ToLower(item.Summary), "golang")
-	})
-
-	log.Printf("Successfully fetched and parsed %d Go-related vacancies from %s", len(goVacancies), s.URL)
-	return goVacancies, nil
+	return allVacancies, nil
 }
 
 func (s *HTMLToRSSSource) fetchPage(url string) ([]model.Item, string, error) {
@@ -112,7 +104,7 @@ func (s *HTMLToRSSSource) extractVacanciesFromHTML(htmlContent string) ([]model.
 			}
 			summary := sel.Find(".job-body").Text()
 			dateStr := sel.Find(".job-date").Text()
-			date, err := time.Parse("02-01-2006", dateStr) // Примерный формат даты
+			date, err := time.Parse("02-01-2006", dateStr)
 			if err != nil {
 				log.Printf("Error parsing date: %v, using current time", err)
 				date = time.Now()
