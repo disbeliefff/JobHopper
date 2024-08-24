@@ -186,6 +186,15 @@ func (s *HTMLToRSSSource) extractNextPageURL(htmlContent string) string {
 		return ""
 	}
 
+	// Переход по страницам для delucre.md
+	if strings.Contains(s.URL, "delucru.md") {
+		nextPage := doc.Find(".pagination .page-item a[rel='next']").AttrOr("href", "")
+		if nextPage != "" && !strings.HasPrefix(nextPage, "http") {
+			nextPage = fmt.Sprintf("%s%s", s.URL, nextPage)
+		}
+		return nextPage
+	}
+
 	nextPage := doc.Find(".pagination-next a").AttrOr("href", "")
 	if nextPage != "" && !strings.HasPrefix(nextPage, "http") {
 		nextPage = fmt.Sprintf("%s%s", s.URL, nextPage)
