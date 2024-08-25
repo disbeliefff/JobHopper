@@ -41,33 +41,31 @@ func New(jobs JobStorage, sources SourceProvider, fetchInterval time.Duration, f
 	}
 }
 
-func (f *Fetcher) Start(ctx context.Context) error {
+func (f *Fetcher) Start(ctx context.Context) ([]model.Job, error) {
 	ticker := time.NewTicker(f.fetchInterval)
 	defer ticker.Stop()
 
-	if err := f.Fetch(ctx); err != nil {
-		return err
+	// Выполняем первичный парсинг
+	jobs, err := f.Fetch(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-			if err := f.Fetch(ctx); err != nil {
-				return err
-			}
-		}
-	}
+	log.Printf("[INFO] Initial fetch returned %d jobs", len(jobs))
+
+	// Возвращаем результат после первичного парсинга и не продолжаем цикл
+	return jobs, nil
 }
 
-func (f *Fetcher) Fetch(ctx context.Context) error {
+func (f *Fetcher) Fetch(ctx context.Context) ([]model.Job, error) {
 	sources, err := f.sources.Sources(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var jobs []model.Job
 
 	for _, src := range sources {
 		wg.Add(1)
@@ -79,23 +77,30 @@ func (f *Fetcher) Fetch(ctx context.Context) error {
 
 			items, err := source.Fetch(ctx)
 			if err != nil {
-				log.Printf("[ERROR ]fetch %s error: %v", source.Name(), err)
+				log.Printf("[ERROR] fetch %s error: %v", source.Name(), err)
 				return
 			}
 
-			if err := f.processItems(ctx, source, items); err != nil {
-				log.Printf("[ERROR ]fetch %s error: %v", source.Name(), err)
+			sourceJobs, err := f.processItems(ctx, source, items)
+			if err != nil {
+				log.Printf("[ERROR] fetch %s error: %v", source.Name(), err)
 				return
 			}
+
+			mu.Lock()
+			jobs = append(jobs, sourceJobs...)
+			mu.Unlock()
 		}(rssSource)
 	}
 
 	wg.Wait()
 
-	return nil
+	return jobs, nil
 }
 
-func (f *Fetcher) processItems(ctx context.Context, source Source, items []model.Item) error {
+func (f *Fetcher) processItems(ctx context.Context, source Source, items []model.Item) ([]model.Job, error) {
+	var jobs []model.Job
+
 	for _, item := range items {
 		item.Date = item.Date.UTC()
 
@@ -103,17 +108,22 @@ func (f *Fetcher) processItems(ctx context.Context, source Source, items []model
 			continue
 		}
 
-		if err := f.jobs.Store(ctx, model.Job{
+		job := model.Job{
 			SourceID:    source.ID(),
 			Title:       item.Title,
 			Link:        item.Link,
 			Summary:     item.Summary,
 			PublishedAt: item.Date,
-		}); err != nil {
-			return err
 		}
+
+		if err := f.jobs.Store(ctx, job); err != nil {
+			return nil, err
+		}
+
+		jobs = append(jobs, job)
 	}
-	return nil
+
+	return jobs, nil
 }
 
 func (f *Fetcher) isItemIncluded(item model.Item) bool {

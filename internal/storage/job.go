@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/disbeliefff/JobHunter/internal/model"
@@ -26,11 +27,13 @@ func (j *JobStorage) Store(ctx context.Context, job model.Job) error {
 	}
 	defer conn.Close()
 
+	log.Printf("[INFO] Storing job: %s, %s", job.Title, job.Link)
+
 	if _, err = conn.ExecContext(
 		ctx,
 		`INSERT INTO jobs (source_id, title, link, summary, published_at, posted_at, created_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
-			ON CONFLICT(source_id, link) DO NOTHING`,
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ON CONFLICT(source_id, link) DO NOTHING`,
 		job.SourceID, job.Title, job.Link, job.Summary, job.PublishedAt, job.PostedAt, job.CreatedAt,
 	); err != nil {
 		return err
@@ -38,7 +41,6 @@ func (j *JobStorage) Store(ctx context.Context, job model.Job) error {
 
 	return nil
 }
-
 func (j *JobStorage) AllNotPosted(ctx context.Context, since time.Time) ([]model.Job, error) {
 	conn, err := j.db.Connx(ctx)
 	if err != nil {
@@ -49,10 +51,12 @@ func (j *JobStorage) AllNotPosted(ctx context.Context, since time.Time) ([]model
 	var jobs []dbJob
 	if err := conn.SelectContext(ctx, &jobs,
 		`SELECT * FROM jobs WHERE posted_at IS NULL
-	  AND published_at >= $1::timestamp
-	  ORDER BY published_at`, since.UTC().Format(time.RFC3339)); err != nil {
+        AND published_at >= $1::timestamp
+        ORDER BY published_at`, since.UTC().Format(time.RFC3339)); err != nil {
 		return nil, err
 	}
+
+	log.Printf("[INFO] Found %d jobs that have not been posted", len(jobs))
 
 	return lo.Map(jobs, func(job dbJob, _ int) model.Job {
 		return model.Job(job)
@@ -60,11 +64,12 @@ func (j *JobStorage) AllNotPosted(ctx context.Context, since time.Time) ([]model
 }
 
 func (j *JobStorage) MarkJobPosted(ctx context.Context, id int) error {
+	log.Printf("[INFO] Marking job ID %d as posted", id)
 	_, err := j.db.ExecContext(
 		ctx,
 		`UPDATE jobs
-			SET posted_at = $1::timestamp
-			WHERE id = $2`,
+            SET posted_at = $1::timestamp
+            WHERE id = $2`,
 		time.Now().UTC().Format(time.RFC3339), id,
 	)
 	return err
