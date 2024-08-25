@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/disbeliefff/JobHunter/internal/botkit"
@@ -54,10 +55,30 @@ func ViewCmdStart(fetcher *fetcher.Fetcher, jobStorage *storage.JobStorage, user
 
 		log.Println("[INFO] Sending found vacancies...")
 		for _, vacancy := range vacancies {
+			postedToChatIDs, err := jobStorage.GetPostedToChatIDs(ctx, vacancy.ID)
+			if err != nil {
+				log.Printf("[ERROR] Failed to check posted_to_chat_ids: %v", err)
+				continue
+			}
+
+			log.Printf("[DEBUG] Job ID %d has posted_to_chat_ids: %s", vacancy.ID, postedToChatIDs)
+
+			if postedToChatIDs != "" && strings.Contains(postedToChatIDs, fmt.Sprintf("%d", chatID)) {
+				log.Printf("[INFO] Job with link %s has already been posted to chat %d, skipping...", vacancy.Link, chatID)
+				continue
+			}
+
+			// Формируем и отправляем сообщение с вакансией
 			vacancyMsg := FormatVacancyMessage(vacancy)
 			message := tgbotapi.NewMessage(chatID, vacancyMsg)
 			if _, err := bot.Send(message); err != nil {
 				log.Printf("[ERROR] Failed to send vacancy message: %v", err)
+				continue
+			}
+
+			// Помечаем вакансию как отправленную
+			if err := jobStorage.MarkJobPosted(ctx, vacancy.ID, chatID); err != nil {
+				log.Printf("[ERROR] Failed to mark job as posted: %v", err)
 			}
 		}
 

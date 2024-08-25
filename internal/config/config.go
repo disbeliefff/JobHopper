@@ -11,7 +11,7 @@ import (
 
 type Config struct {
 	TelegramBotToken     string        `hcl:"telegram_bot_token" env:"TELEGRAM_BOT_TOKEN" required:"true"`
-	DatabaseDSN          string        `hcl:"database_dsn" env:"DATABASE_DSN" default:"postgres://postgres:postgres@localhost:5433/job_hunter_bot?sslmode=disable"`
+	DatabaseDSN          string        `hcl:"database_dsn" env:"DATABASE_URL"`
 	FetchInterval        time.Duration `hcl:"fetch_interval" env:"FETCH_INTERVAL" default:"10m"`
 	NotificationInterval time.Duration `hcl:"notification_interval" env:"NOTIFICATION_INTERVAL" default:"1m"`
 	FilterKeywords       []string      `hcl:"filter_keywords" env:"FILTER_KEYWORDS"`

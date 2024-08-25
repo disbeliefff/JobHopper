@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -27,6 +28,19 @@ func (j *JobStorage) Store(ctx context.Context, job model.Job) error {
 	}
 	defer conn.Close()
 
+	var exists bool
+	err = conn.GetContext(ctx, &exists,
+		`SELECT EXISTS(SELECT 1 FROM jobs WHERE source_id = $1 AND link = $2)`,
+		job.SourceID, job.Link)
+	if err != nil {
+		return err
+	}
+
+	if exists {
+		log.Printf("[INFO] Job with link %s already exists, skipping insertion.", job.Link)
+		return nil
+	}
+
 	log.Printf("[INFO] Storing job: %s, %s", job.Title, job.Link)
 
 	if _, err = conn.ExecContext(
@@ -41,6 +55,7 @@ func (j *JobStorage) Store(ctx context.Context, job model.Job) error {
 
 	return nil
 }
+
 func (j *JobStorage) AllNotPosted(ctx context.Context, since time.Time) ([]model.Job, error) {
 	conn, err := j.db.Connx(ctx)
 	if err != nil {
@@ -63,16 +78,28 @@ func (j *JobStorage) AllNotPosted(ctx context.Context, since time.Time) ([]model
 	}), nil
 }
 
-func (j *JobStorage) MarkJobPosted(ctx context.Context, id int) error {
-	log.Printf("[INFO] Marking job ID %d as posted", id)
+func (j *JobStorage) MarkJobPosted(ctx context.Context, jobID int, chatID int64) error {
+	log.Printf("[INFO] Marking job ID %d as posted for chat ID %d", jobID, chatID)
+
 	_, err := j.db.ExecContext(
 		ctx,
-		`UPDATE jobs
-            SET posted_at = $1::timestamp
-            WHERE id = $2`,
-		time.Now().UTC().Format(time.RFC3339), id,
+		`UPDATE jobs 
+         SET posted_to_chat_ids = 
+            CASE
+                WHEN posted_to_chat_ids IS NULL THEN $1
+                WHEN posted_to_chat_ids LIKE '%' || $1 || '%' THEN posted_to_chat_ids
+                ELSE posted_to_chat_ids || ',' || $1
+            END
+         WHERE id = $2`,
+		fmt.Sprintf("%d", chatID), jobID,
 	)
 	return err
+}
+
+func (j *JobStorage) GetPostedToChatIDs(ctx context.Context, jobID int) (string, error) {
+	var postedToChatIDs string
+	err := j.db.GetContext(ctx, &postedToChatIDs, `SELECT posted_to_chat_ids FROM jobs WHERE id = $1`, jobID)
+	return postedToChatIDs, err
 }
 
 type dbJob struct {

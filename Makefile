@@ -1,11 +1,11 @@
 goose-status:
-	goose -dir internal/storage/migrations postgres "host=localhost port=5433 user=postgres dbname=job_hunter_bot password=pass sslmode=disable" status
+	goose -dir internal/storage/migrations postgres "$(DATABASE_URL)" status
 
 goose-up:
-	goose -dir internal/storage/migrations postgres "host=localhost port=5433 user=postgres dbname=job_hunter_bot password=pass sslmode=disable" up
+	goose -dir internal/storage/migrations postgres "$(DATABASE_URL)" up
 
 goose-down:
-	goose -dir internal/storage/migrations postgres "host=localhost port=5433 user=postgres dbname=job_hunter_bot password=pass sslmode=disable" down
+	goose -dir internal/storage/migrations postgres "$(DATABASE_URL)" down
 
 database-up:
 	docker compose -f docker-compose.dev.yml up

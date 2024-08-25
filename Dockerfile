@@ -24,9 +24,8 @@ RUN apt-get update && apt-get install -y ca-certificates
 # Копирование скомпилированного приложения из этапа сборки
 COPY --from=builder /run-app /usr/local/bin/
 
-# Установите переменные окружения
-ENV TELEGRAM_BOT_TOKEN=${TelegramBotToken}
-ENV DATABASE_DSN=${DatabaseDSN}
+# Укажите порт, на котором будет работать приложение
+EXPOSE 8080
 
-# Запуск приложения 
+# Запуск приложения
 CMD ["run-app"]

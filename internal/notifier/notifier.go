@@ -12,7 +12,7 @@ import (
 
 type JobProvider interface {
 	AllNotPosted(ctx context.Context, since time.Time) ([]model.Job, error)
-	MarkJobPosted(ctx context.Context, id int) error
+	MarkJobPosted(ctx context.Context, id int, chatID int64) error
 }
 
 type Notifier struct {
@@ -72,7 +72,7 @@ func (n *Notifier) SendJobs(ctx context.Context) error {
 			return err
 		}
 
-		if err := n.jobs.MarkJobPosted(ctx, job.ID); err != nil {
+		if err := n.jobs.MarkJobPosted(ctx, job.ID, n.chatID); err != nil {
 			log.Printf("[ERROR] Error marking job as posted: %v", err)
 			return err
 		}
