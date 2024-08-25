@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log"
 	"os"
 	"os/signal"
@@ -17,36 +16,36 @@ import (
 	"github.com/disbeliefff/JobHunter/internal/storage"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/jmoiron/sqlx"
+	"github.com/robfig/cron/v3"
 )
 
 func main() {
-	log.Printf("[INFO] Starting bot with token %s", config.Get().TelegramBotToken)
+	// Настройка бота
 	botAPI, err := tgbotapi.NewBotAPI(config.Get().TelegramBotToken)
 	if err != nil {
-		log.Printf("[ERROR] Failed to create bot: %v", err)
-		return
+		log.Fatalf("[ERROR] Failed to create bot: %v", err)
 	}
 	log.Printf("[INFO] Authorized on account %s", botAPI.Self.UserName)
 
+	// Подключение к базе данных
 	db, err := sqlx.Connect("postgres", config.Get().DatabaseDSN)
 	if err != nil {
-		log.Printf("[ERROR] Failed to connect to database: %v", err)
-		return
+		log.Fatalf("[ERROR] Failed to connect to database: %v", err)
 	}
 	defer db.Close()
 
-	var (
-		jobStorage    = storage.NewJobStorage(db)
-		userStorage   = storage.NewUserStorage(db)
-		sourceStorage = storage.NewSourceStorage(db)
-		fetcher       = fetcher.New(
-			jobStorage,
-			sourceStorage,
-			config.Get().FetchInterval,
-			config.Get().FilterKeywords,
-		)
+	// Инициализация хранилищ и парсера
+	jobStorage := storage.NewJobStorage(db)
+	userStorage := storage.NewUserStorage(db)
+	sourceStorage := storage.NewSourceStorage(db)
+	fetcher := fetcher.New(
+		jobStorage,
+		sourceStorage,
+		config.Get().FetchInterval,
+		config.Get().FilterKeywords,
 	)
 
+	// Создание контекста для обработки сигналов
 	ctx, cancel := signal.NotifyContext(
 		context.Background(),
 		os.Interrupt,
@@ -54,23 +53,32 @@ func main() {
 	)
 	defer cancel()
 
+	// Настройка бота для обработки команд
 	jobsBot := botkit.New(botAPI)
-
 	jobsBot.RegisterCmdView("start", bot.ViewCmdStart(fetcher, jobStorage, userStorage, botAPI))
-	log.Println("[INFO] Registered 'start' command")
+
+	// Настройка планировщика
+	c := cron.New()
+	c.AddFunc("0 8,18 * * *", func() {
+		log.Println("[INFO] Running scheduled job at 8:00 or 18:00")
+		vacancies, err := fetcher.Start(ctx)
+		if err != nil {
+			log.Printf("[ERROR] Error during scheduled parsing: %v", err)
+			return
+		}
+		log.Printf("[INFO] Found %d vacancies during parsing", len(vacancies))
+	})
+	c.Start()
 
 	// Запуск бота
-	go func(ctx context.Context) {
+	go func() {
 		if err := jobsBot.Run(ctx); err != nil {
-			if !errors.Is(err, context.Canceled) {
-				log.Printf("[ERROR] Error to run bot: %v", err)
-				return
-			}
-			log.Printf("[INFO] Bot stopped")
+			log.Fatalf("[ERROR] Bot stopped: %v", err)
 		}
-	}(ctx)
+	}()
 
-	// Ожидание завершения всех задач
+	// Ожидание завершения работы
 	<-ctx.Done()
-	log.Println("[INFO] Application shutting down.")
+	c.Stop()
+	log.Println("[INFO] Shutting down...")
 }
