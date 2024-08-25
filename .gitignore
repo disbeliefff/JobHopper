@@ -11,7 +11,7 @@
 *.dll
 *.so
 *.dylib
-.github
+.github/
 
 # Test binary, built with `go test -c`
 *.test
@@ -26,7 +26,9 @@
 go.work
 
 # End of https://www.toptal.com/developers/gitignore/api/go
+
+# Custom files
 fly.toml
-fly-deploy,yml
+fly-deploy.yml
 /bin/
-.env
+/.env

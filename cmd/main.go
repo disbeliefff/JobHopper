@@ -57,7 +57,6 @@ func main() {
 	jobsBot.RegisterCmdView("start", func(ctx context.Context, tgbot *tgbotapi.BotAPI, update *tgbotapi.Update) error {
 		chatID := update.FromChat().ID
 
-		// Приветственное сообщение
 		tgbot.Send(tgbotapi.NewMessage(chatID, "Привет! Полный функционал бота все еще в разработке. На данный момент ищу вакансии по запросу golang и backend"))
 
 		if err := userStorage.StoreChatID(ctx, chatID); err != nil {
@@ -65,7 +64,6 @@ func main() {
 			return err
 		}
 
-		// Сообщение о начале парсинга
 		tgbot.Send(tgbotapi.NewMessage(chatID, "Начинаю парсинг..."))
 
 		vacancies, err := fetcher.Start(ctx)
@@ -85,7 +83,6 @@ func main() {
 			}
 		}
 
-		// Сообщение о запуске таймера
 		tgbot.Send(tgbotapi.NewMessage(chatID, "Запускаю таймер на 8:00 и 18:00 каждый день"))
 
 		once.Do(func() {
