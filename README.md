@@ -1,3 +1,7 @@
+## You can ping bot:
+ https://t.me/jobhunterr_bot
+
+
 # Getting Started
 
 ## Prerequisites
