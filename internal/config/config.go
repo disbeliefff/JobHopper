@@ -10,8 +10,7 @@ import (
 )
 
 type Config struct {
-	TelegramBotToken string `hcl:"telegram_bot_token" env:"TELEGRAM_BOT_TOKEN" required:"true"`
-	// TelegramChannelID    int64         `hcl:"telegram_channel_id" env:"TELEGRAM_CHANNEL_ID" required:"true"`
+	TelegramBotToken     string        `hcl:"telegram_bot_token" env:"TELEGRAM_BOT_TOKEN" required:"true"`
 	DatabaseDSN          string        `hcl:"database_dsn" env:"DATABASE_DSN" default:"postgres://postgres:postgres@localhost:5433/job_hunter_bot?sslmode=disable"`
 	FetchInterval        time.Duration `hcl:"fetch_interval" env:"FETCH_INTERVAL" default:"10m"`
 	NotificationInterval time.Duration `hcl:"notification_interval" env:"NOTIFICATION_INTERVAL" default:"1m"`
@@ -26,15 +25,25 @@ var (
 func Get() Config {
 	once.Do(func() {
 		loader := aconfig.LoaderFor(&cfg, aconfig.Config{
-			EnvPrefix: "JHB",
-			Files:     []string{"./config.hcl", "./config.local.hcl", "$HOME/.config/job-hunter-bot/config.hcl"},
+			Files: []string{
+				"./config.hcl",
+				"./config.local.hcl",
+				"$HOME/.config/job-hunter-bot/config.hcl",
+			},
 			FileDecoders: map[string]aconfig.FileDecoder{
 				".hcl": aconfighcl.New(),
 			},
 		})
 
 		if err := loader.Load(); err != nil {
-			log.Printf("[ERROR] failed to load config: %v", err)
+			log.Fatalf("[ERROR] failed to load config: %v", err) // Завершаем программу при ошибке
+		}
+		if cfg.TelegramBotToken == "" {
+			log.Fatalf("[ERROR] TelegramBotToken is not set or loaded")
+		}
+
+		if cfg.DatabaseDSN == "" {
+			log.Fatalf("[ERROR] DatabaseDSN is not set or loaded")
 		}
 	})
 

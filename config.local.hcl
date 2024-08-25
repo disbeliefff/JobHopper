@@ -7,3 +7,4 @@ fetch_interval = "10m"
 notification_interval = "1m"
 
 filter_keywords = ["Golang", "Go", "golang", "go", "Backend", "Back-end"]
+ 

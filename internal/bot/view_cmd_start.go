@@ -23,12 +23,14 @@ func ViewCmdStart(fetcher *fetcher.Fetcher, jobStorage *storage.JobStorage, user
 			return err
 		}
 
-		message := tgbotapi.NewMessage(chatID, "Hello! Starting to parse and fetch new vacancies for you...")
+		message := tgbotapi.NewMessage(chatID, "Привет! Полный функционал бота все еще в разработке. На данный момент ищу вакансии по запросу golang и backend")
 
 		if _, err := bot.Send(message); err != nil {
 			log.Printf("[ERROR] Failed to send initial message: %v", err)
 			return err
 		}
+
+		bot.Send(tgbotapi.NewMessage(chatID, "Начинаю парсинг..."))
 
 		log.Println("[INFO] Starting parsing process...")
 		vacancies, err := fetcher.Start(ctx)
@@ -39,24 +41,16 @@ func ViewCmdStart(fetcher *fetcher.Fetcher, jobStorage *storage.JobStorage, user
 
 		log.Printf("[INFO] Found %d vacancies during parsing", len(vacancies))
 
-		log.Println("[INFO] Parsing completed. Preparing to send completion message.")
-
-		parseCompleteMsg := tgbotapi.NewMessage(chatID, "Parsing complete. Sending vacancies now...")
-		if _, err := bot.Send(parseCompleteMsg); err != nil {
-			log.Printf("[ERROR] Failed to send parse complete message: %v", err)
-			return err
-		}
-
-		time.Sleep(1 * time.Second)
-
 		if len(vacancies) == 0 {
-			noJobsMessage := tgbotapi.NewMessage(chatID, "No new vacancies found.")
+			noJobsMessage := tgbotapi.NewMessage(chatID, "Сегодня новых вакансий не нашлось")
 			if _, err := bot.Send(noJobsMessage); err != nil {
 				log.Printf("[ERROR] Failed to send no jobs message: %v", err)
 			}
 			log.Println("[INFO] No new vacancies found. Ending process.")
 			return nil
 		}
+
+		bot.Send(tgbotapi.NewMessage(chatID, "Вакансии найденные по вашему запросу..."))
 
 		log.Println("[INFO] Sending found vacancies...")
 		for _, vacancy := range vacancies {
@@ -76,6 +70,8 @@ func ViewCmdStart(fetcher *fetcher.Fetcher, jobStorage *storage.JobStorage, user
 				log.Printf("[ERROR] Notifier error: %v", err)
 			}
 		}()
+
+		bot.Send(tgbotapi.NewMessage(chatID, "Запускаю таймер на 8:00 и 18:00 каждый день"))
 
 		return nil
 	}
