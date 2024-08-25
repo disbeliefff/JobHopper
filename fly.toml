@@ -12,6 +12,10 @@ primary_region = 'otp'
 
 [env]
   PORT = '8080'
+  TELEGRAM_BOT_TOKEN = "7028281349:AAFQBOy6gHSDaESyPWYOktrPqLugprIkdiU"
+  FETCH_INTERVAL = "10m"
+  NOTIFICATION_INTERVAL = "1m"
+  FILTER_KEYWORDS = "Golang, Go, golang, go, Backend, Back-end"
 
 [http_service]
   internal_port = 8080

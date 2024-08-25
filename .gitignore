@@ -28,6 +28,7 @@ go.work
 # End of https://www.toptal.com/developers/gitignore/api/go
 
 # Custom files
+config.local.hcl
 fly.toml
 fly-deploy.yml
 /bin/
