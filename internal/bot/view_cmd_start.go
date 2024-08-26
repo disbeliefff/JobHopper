@@ -19,11 +19,6 @@ func ViewCmdStart(fetcher *fetcher.Fetcher, jobStorage *storage.JobStorage, user
 	return func(ctx context.Context, bot *tgbotapi.BotAPI, update *tgbotapi.Update) error {
 		chatID := update.FromChat().ID
 
-		if err := usersStorage.StoreChatID(ctx, chatID); err != nil {
-			log.Printf("[ERROR] Failed to store chat ID: %v", err)
-			return err
-		}
-
 		message := tgbotapi.NewMessage(chatID, "Привет! Полный функционал бота все еще в разработке. На данный момент ищу вакансии по запросу golang и backend")
 
 		if _, err := bot.Send(message); err != nil {
@@ -63,12 +58,11 @@ func ViewCmdStart(fetcher *fetcher.Fetcher, jobStorage *storage.JobStorage, user
 
 			log.Printf("[DEBUG] Job ID %d has posted_to_chat_ids: %s", vacancy.ID, postedToChatIDs)
 
-			if postedToChatIDs != "" && strings.Contains(postedToChatIDs, fmt.Sprintf("%d", chatID)) {
+			if postedToChatIDs == fmt.Sprintf("%d", chatID) || strings.Contains(postedToChatIDs, fmt.Sprintf(",%d", chatID)) || strings.Contains(postedToChatIDs, fmt.Sprintf("%d,", chatID)) {
 				log.Printf("[INFO] Job with link %s has already been posted to chat %d, skipping...", vacancy.Link, chatID)
 				continue
 			}
 
-			// Формируем и отправляем сообщение с вакансией
 			vacancyMsg := FormatVacancyMessage(vacancy)
 			message := tgbotapi.NewMessage(chatID, vacancyMsg)
 			if _, err := bot.Send(message); err != nil {
@@ -76,7 +70,6 @@ func ViewCmdStart(fetcher *fetcher.Fetcher, jobStorage *storage.JobStorage, user
 				continue
 			}
 
-			// Помечаем вакансию как отправленную
 			if err := jobStorage.MarkJobPosted(ctx, vacancy.ID, chatID); err != nil {
 				log.Printf("[ERROR] Failed to mark job as posted: %v", err)
 			}

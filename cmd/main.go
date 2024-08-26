@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -21,6 +22,37 @@ import (
 )
 
 func main() {
+	ctx, cancel := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
+	defer cancel()
+
+	// Запуск HTTP-сервера в отдельной горутине
+	serverReady := make(chan bool)
+	go func() {
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = "8080"
+		}
+
+		http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("OK"))
+		})
+
+		log.Printf("[INFO] Starting HTTP server on port %s", port)
+		serverReady <- true // Сообщаем, что сервер запущен
+		if err := http.ListenAndServe(":"+port, nil); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("[ERROR] Failed to start HTTP server: %v", err)
+		}
+	}()
+
+	// Ожидаем, пока сервер будет готов
+	<-serverReady
+
+	// После успешного запуска сервера запускаем бота
 	botAPI, err := tgbotapi.NewBotAPI(config.Get().TelegramBotToken)
 	if err != nil {
 		log.Fatalf("[ERROR] Failed to create bot: %v", err)
@@ -42,16 +74,6 @@ func main() {
 		config.Get().FetchInterval,
 		config.Get().FilterKeywords,
 	)
-
-	ctx, cancel := signal.NotifyContext(
-		context.Background(),
-		os.Interrupt,
-		syscall.SIGTERM,
-	)
-	defer cancel()
-
-	c := cron.New()
-	var once sync.Once
 
 	jobsBot := botkit.New(botAPI)
 	jobsBot.RegisterCmdView("start", func(ctx context.Context, tgbot *tgbotapi.BotAPI, update *tgbotapi.Update) error {
@@ -85,7 +107,9 @@ func main() {
 
 		tgbot.Send(tgbotapi.NewMessage(chatID, "Запускаю таймер на 8:00 и 18:00 каждый день"))
 
+		var once sync.Once
 		once.Do(func() {
+			c := cron.New()
 			c.AddFunc("0 8,18 * * *", func() {
 				log.Println("[INFO] Running scheduled job at 8:00 or 18:00")
 				vacancies, err := fetcher.Start(ctx)
@@ -117,6 +141,5 @@ func main() {
 	}()
 
 	<-ctx.Done()
-	c.Stop()
 	log.Println("[INFO] Shutting down...")
 }

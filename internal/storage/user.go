@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+
 	"github.com/jmoiron/sqlx"
 )
 
@@ -40,4 +41,15 @@ func (u *UserStorage) RetrieveChatIDs(ctx context.Context) ([]int64, error) {
 	}
 
 	return chatIDs, nil
+}
+
+func (s *UserStorage) IsBotStarted(ctx context.Context, chatID int64) (bool, error) {
+	var started bool
+	err := s.db.GetContext(ctx, &started, `SELECT started FROM users WHERE chat_id = $1`, chatID)
+	return started, err
+}
+
+func (s *UserStorage) SetBotStarted(ctx context.Context, chatID int64, started bool) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE users SET started = $1 WHERE chat_id = $2`, started, chatID)
+	return err
 }

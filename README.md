@@ -1,6 +1,11 @@
 ## You can ping bot:
  https://t.me/jobhunterr_bot
 
+## Soon: 
+- search using your own filter keywords 
+- list of filter keywords 
+- more sources 
+
 
 # Getting Started
 
