@@ -1,33 +1,25 @@
 {
     "name": "JobHopper",
-    "dockerComposeFile": "docker-compose.dev.yml",
-    "service": "db",
-    "workspaceFolder": "/workspace",
+    "image": "mcr.microsoft.com/devcontainers/go:1-1.22-bookworm",
     "customizations": {
-        "vscode": {
-            "extensions": [
-                "golang.go",
-                "ms-vscode.go",
-                "eamodio.gitlens"
-            ],
-            "settings": {
-                "go.gopath": "/go",
-                "terminal.integrated.defaultProfile.linux": "bash"
-            }
+      "vscode": {
+        "extensions": [
+          "golang.go",
+          "ms-vscode.go",
+          "eamodio.gitlens"
+        ],
+        "settings": {
+          "go.gopath": "/go",
+          "terminal.integrated.defaultProfile.linux": "bash"
         }
+      }
     },
     "postCreateCommand": "go mod tidy",
+    "postStartCommand": "docker-compose -f docker-compose.dev.yml up -d && make server",
     "remoteUser": "vscode",
-    "mounts": [
-        "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached",
-        "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
-    ],
-    "remoteEnv": {
-        "GOPROXY": "https://proxy.golang.org,direct"
-    },
     "forwardPorts": [
-        8080,
-        5433
-    ],
-    "postStartCommand": "make server"
-}
+      8080,
+      5433
+    ]
+  }
+  
