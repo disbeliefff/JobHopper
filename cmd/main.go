@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
+	"time"
 
 	_ "github.com/lib/pq"
 
@@ -15,6 +15,7 @@ import (
 	"github.com/disbeliefff/JobHunter/internal/botkit"
 	"github.com/disbeliefff/JobHunter/internal/config"
 	"github.com/disbeliefff/JobHunter/internal/fetcher"
+	"github.com/disbeliefff/JobHunter/internal/notifier"
 	"github.com/disbeliefff/JobHunter/internal/storage"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/jmoiron/sqlx"
@@ -29,7 +30,6 @@ func main() {
 	)
 	defer cancel()
 
-	// Запуск HTTP-сервера в отдельной горутине
 	serverReady := make(chan bool)
 	go func() {
 		port := os.Getenv("PORT")
@@ -43,16 +43,14 @@ func main() {
 		})
 
 		log.Printf("[INFO] Starting HTTP server on port %s", port)
-		serverReady <- true // Сообщаем, что сервер запущен
+		serverReady <- true
 		if err := http.ListenAndServe(":"+port, nil); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("[ERROR] Failed to start HTTP server: %v", err)
 		}
 	}()
 
-	// Ожидаем, пока сервер будет готов
 	<-serverReady
 
-	// После успешного запуска сервера запускаем бота
 	botAPI, err := tgbotapi.NewBotAPI(config.Get().TelegramBotToken)
 	if err != nil {
 		log.Fatalf("[ERROR] Failed to create bot: %v", err)
@@ -88,31 +86,42 @@ func main() {
 
 		tgbot.Send(tgbotapi.NewMessage(chatID, "Начинаю парсинг..."))
 
-		vacancies, err := fetcher.Start(ctx)
-		if err != nil {
-			log.Printf("[ERROR] Error during initial parsing: %v", err)
-			return err
-		}
-		log.Printf("[INFO] Found %d vacancies during initial parsing", len(vacancies))
+		go func() {
+			// Создание нового контекста для фетчера
+			fetcherCtx, fetcherCancel := context.WithCancel(context.Background())
+			defer fetcherCancel()
 
-		if len(vacancies) == 0 {
-			tgbot.Send(tgbotapi.NewMessage(chatID, "Сегодня новых вакансий не нашлось"))
-		} else {
-			tgbot.Send(tgbotapi.NewMessage(chatID, "Вакансии найденные по вашему запросу..."))
-			for _, vacancy := range vacancies {
-				vacancyMsg := bot.FormatVacancyMessage(vacancy)
-				tgbot.Send(tgbotapi.NewMessage(chatID, vacancyMsg))
+			vacancies, err := fetcher.Start(fetcherCtx)
+			if err != nil {
+				log.Printf("[ERROR] Error during initial parsing: %v", err)
+				return
 			}
-		}
+			log.Printf("[INFO] Found %d vacancies during initial parsing", len(vacancies))
+
+			if len(vacancies) == 0 {
+				tgbot.Send(tgbotapi.NewMessage(chatID, "Сегодня новых вакансий не нашлось"))
+			} else {
+				tgbot.Send(tgbotapi.NewMessage(chatID, "Вакансии найденные по вашему запросу..."))
+				for _, vacancy := range vacancies {
+					vacancyMsg := bot.FormatVacancyMessage(vacancy)
+					tgbot.Send(tgbotapi.NewMessage(chatID, vacancyMsg))
+				}
+			}
+		}()
 
 		tgbot.Send(tgbotapi.NewMessage(chatID, "Запускаю таймер на 8:00 и 18:00 каждый день"))
 
-		var once sync.Once
-		once.Do(func() {
+		// Запуск периодического фетчера с использованием cron
+		go func() {
 			c := cron.New()
 			c.AddFunc("0 8,18 * * *", func() {
 				log.Println("[INFO] Running scheduled job at 8:00 or 18:00")
-				vacancies, err := fetcher.Start(ctx)
+
+				// Новый контекст для планового фетчера
+				scheduledCtx, scheduledCancel := context.WithTimeout(context.Background(), 30*time.Minute)
+				defer scheduledCancel()
+
+				vacancies, err := fetcher.Start(scheduledCtx)
 				if err != nil {
 					log.Printf("[ERROR] Error during scheduled parsing: %v", err)
 					return
@@ -129,7 +138,19 @@ func main() {
 				}
 			})
 			c.Start()
-		})
+		}()
+
+		go func() {
+			log.Println("[INFO] Starting notifier...")
+			// Создание нового контекста для нотифаера
+			notifyCtx, notifyCancel := context.WithCancel(context.Background())
+			defer notifyCancel()
+
+			notify := notifier.New(jobStorage, botAPI, 24*time.Hour, 24*time.Hour, chatID)
+			if err := notify.Start(notifyCtx); err != nil {
+				log.Printf("[ERROR] Notifier error: %v", err)
+			}
+		}()
 
 		return nil
 	})

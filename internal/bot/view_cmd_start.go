@@ -10,7 +10,6 @@ import (
 	"github.com/disbeliefff/JobHunter/internal/botkit"
 	"github.com/disbeliefff/JobHunter/internal/fetcher"
 	"github.com/disbeliefff/JobHunter/internal/model"
-	"github.com/disbeliefff/JobHunter/internal/notifier"
 	"github.com/disbeliefff/JobHunter/internal/storage"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -48,47 +47,46 @@ func ViewCmdStart(fetcher *fetcher.Fetcher, jobStorage *storage.JobStorage, user
 
 		bot.Send(tgbotapi.NewMessage(chatID, "Вакансии найденные по вашему запросу..."))
 
-		log.Println("[INFO] Sending found vacancies...")
-		for _, vacancy := range vacancies {
-			postedToChatIDs, err := jobStorage.GetPostedToChatIDs(ctx, vacancy.ID)
-			if err != nil {
-				log.Printf("[ERROR] Failed to check posted_to_chat_ids: %v", err)
-				continue
-			}
-
-			log.Printf("[DEBUG] Job ID %d has posted_to_chat_ids: %s", vacancy.ID, postedToChatIDs)
-
-			if postedToChatIDs == fmt.Sprintf("%d", chatID) || strings.Contains(postedToChatIDs, fmt.Sprintf(",%d", chatID)) || strings.Contains(postedToChatIDs, fmt.Sprintf("%d,", chatID)) {
-				log.Printf("[INFO] Job with link %s has already been posted to chat %d, skipping...", vacancy.Link, chatID)
-				continue
-			}
-
-			vacancyMsg := FormatVacancyMessage(vacancy)
-			message := tgbotapi.NewMessage(chatID, vacancyMsg)
-			if _, err := bot.Send(message); err != nil {
-				log.Printf("[ERROR] Failed to send vacancy message: %v", err)
-				continue
-			}
-
-			if err := jobStorage.MarkJobPosted(ctx, vacancy.ID, chatID); err != nil {
-				log.Printf("[ERROR] Failed to mark job as posted: %v", err)
-			}
+		if err := ProcessVacancies(ctx, vacancies, chatID, jobStorage, bot); err != nil {
+			return err
 		}
-
-		log.Println("[INFO] All vacancies sent successfully")
-
-		log.Println("[INFO] Starting notifier...")
-		notify := notifier.New(jobStorage, botAPI, 24*time.Hour, 24*time.Hour, chatID)
-		go func() {
-			if err := notify.Start(ctx); err != nil {
-				log.Printf("[ERROR] Notifier error: %v", err)
-			}
-		}()
 
 		bot.Send(tgbotapi.NewMessage(chatID, "Запускаю таймер на 8:00 и 18:00 каждый день"))
 
 		return nil
 	}
+}
+
+func ProcessVacancies(ctx context.Context, vacancies []model.Job, chatID int64, jobStorage *storage.JobStorage, bot *tgbotapi.BotAPI) error {
+	log.Println("[INFO] Sending found vacancies...")
+	for _, vacancy := range vacancies {
+		postedToChatIDs, err := jobStorage.GetPostedToChatIDs(ctx, vacancy.ID)
+		if err != nil {
+			log.Printf("[ERROR] Failed to check posted_to_chat_ids: %v", err)
+			continue
+		}
+
+		log.Printf("[DEBUG] Job ID %d has posted_to_chat_ids: %s", vacancy.ID, postedToChatIDs)
+
+		if postedToChatIDs == fmt.Sprintf("%d", chatID) || strings.Contains(postedToChatIDs, fmt.Sprintf(",%d", chatID)) || strings.Contains(postedToChatIDs, fmt.Sprintf("%d,", chatID)) {
+			log.Printf("[INFO] Job with link %s has already been posted to chat %d, skipping...", vacancy.Link, chatID)
+			continue
+		}
+
+		vacancyMsg := FormatVacancyMessage(vacancy)
+		message := tgbotapi.NewMessage(chatID, vacancyMsg)
+		if _, err := bot.Send(message); err != nil {
+			log.Printf("[ERROR] Failed to send vacancy message: %v", err)
+			continue
+		}
+
+		if err := jobStorage.MarkJobPosted(ctx, vacancy.ID, chatID); err != nil {
+			log.Printf("[ERROR] Failed to mark job as posted: %v", err)
+		}
+	}
+
+	log.Println("[INFO] All vacancies sent successfully")
+	return nil
 }
 
 func FormatVacancyMessage(job model.Job) string {
